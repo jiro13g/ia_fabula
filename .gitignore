@@ -1,0 +1,15 @@
+# Secretos
+.env
+
+# Entorno virtual y caché de Python
+.venv/
+__pycache__/
+*.pyc
+
+# Datos locales
+instance/
+fabula_memory.db
+
+# Editor y archivos de prueba
+.vscode/
+prueba.jpg

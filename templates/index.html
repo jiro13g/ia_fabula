@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#0b0d1f">
+  <title>Fábula · Buscador con IA</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📖</text></svg>">
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+  <canvas id="bg" aria-hidden="true"></canvas>
+  <div class="aurora" aria-hidden="true"><span></span><span></span><span></span></div>
+
+  <main class="app">
+    <header class="top">
+      <div class="logo" aria-hidden="true">
+        <svg viewBox="0 0 48 48" width="30" height="30" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M24 12c-4-3-10-4-16-3v27c6-1 12 0 16 3 4-3 10-4 16-3V9c-6-1-12 0-16 3z"/>
+          <path d="M24 12v27"/>
+          <path d="M33 17l1.2 2.8 2.8 1.2-2.8 1.2L33 25l-1.2-2.8L29 21l2.8-1.2z" fill="currentColor" stroke="none"/>
+        </svg>
+      </div>
+      <div class="brand">
+        <h1>Fábula</h1>
+        <p>Memoria, imaginación y sonidos en un solo lugar</p>
+      </div>
+      <span class="pill" id="statusPill"><i></i> Lista para explorar</span>
+    </header>
+
+    <section class="hero">
+      <h2 class="headline">
+        ¿Qué <span class="rotator" id="rotator">historia</span> quieres descubrir hoy?
+      </h2>
+
+      <form id="searchForm" class="search glow" autocomplete="off">
+        <svg class="search-icon" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>
+        <input id="query" type="text" maxlength="500" placeholder="Un dragón sabio, el sonido del bosque, la moraleja de la tortuga…" aria-label="Escribe tu búsqueda">
+        <button type="button" id="clearBtn" class="icon-btn hidden" aria-label="Borrar texto">✕</button>
+        <button type="submit" id="searchBtn" class="go"><span>Descubrir</span><kbd>↵</kbd></button>
+      </form>
+
+      <div class="chips" id="suggestions" aria-label="Ideas para buscar"></div>
+      <div class="chips recent hidden" id="recent" aria-label="Búsquedas recientes"></div>
+    </section>
+
+    <section id="results" class="results hidden" aria-live="polite">
+      <div class="layout">
+        <aside class="side glass" id="side" aria-label="Opciones de búsqueda">
+          <p class="side-title">Explorar</p>
+          <button class="nav active" data-tab="texto" type="button"><span class="ico">✨</span><span class="lbl">Respuesta</span></button>
+          <button class="nav" data-tab="imagenes" type="button"><span class="ico">🖼️</span><span class="lbl">Imágenes relacionadas</span></button>
+          <button class="nav" data-tab="generar" type="button"><span class="ico">🎨</span><span class="lbl">Generar imagen</span></button>
+          <button class="nav" data-tab="audio" type="button"><span class="ico">🎧</span><span class="lbl">Sonidos</span></button>
+          <button class="nav" data-tab="memoria" type="button"><span class="ico">🧠</span><span class="lbl">Memoria</span><b class="badge" id="badge-memoria">0</b></button>
+          <p class="side-hint">Primero llega el texto. Imágenes y sonidos se cargan solo cuando los pides.</p>
+        </aside>
+
+        <div class="stage">
+          <div id="loader" class="loader hidden">
+            <div class="orbs"><i></i><i></i><i></i></div>
+            <p id="loaderText">Hilando ideas…</p>
+            <div class="skeleton"><span></span><span></span><span></span></div>
+          </div>
+
+          <div id="content" class="content hidden">
+            <article class="panel glass active" id="panel-texto" role="region" aria-label="Respuesta">
+              <div class="toolbar">
+                <button class="btn voice" id="voiceBtn" type="button">
+                  <span class="eq" aria-hidden="true"><i></i><i></i><i></i><i></i></span>
+                  <span id="voiceLabel">Escuchar</span>
+                </button>
+                <button class="btn ghost" id="copyBtn" type="button">📋 Copiar</button>
+                <button class="btn ghost hidden" id="skipBtn" type="button">⏩ Mostrar todo</button>
+                <span class="model-tag hidden" id="modelTag"></span>
+              </div>
+              <div class="answer" id="answer"></div>
+              <div class="notes" id="notes"></div>
+              <div class="followups hidden" id="followups">
+                <p>¿Quieres ir más lejos?</p>
+                <div class="chips left">
+                  <button class="chip" type="button" data-action="imagenes">🖼️ Ver imágenes relacionadas</button>
+                  <button class="chip" type="button" data-action="generar">🎨 Generar una imagen</button>
+                  <button class="chip" type="button" data-action="audio">🎧 Buscar sonidos</button>
+                </div>
+              </div>
+            </article>
+
+            <article class="panel glass" id="panel-imagenes" role="region" aria-label="Imágenes relacionadas">
+              <h3 class="sub">Imágenes relacionadas <small>· Wikimedia Commons</small></h3>
+              <div class="gallery" id="relatedGallery"></div>
+            </article>
+
+            <article class="panel glass" id="panel-generar" role="region" aria-label="Generar imagen">
+              <h3 class="sub">Generar imagen con IA</h3>
+              <form class="genbar" id="genForm">
+                <input id="genPrompt" type="text" maxlength="400" placeholder="Describe la imagen que quieres crear…" aria-label="Descripción de la imagen">
+                <select id="genStyle" aria-label="Estilo">
+                  <option value="cuento">📖 Cuento ilustrado</option>
+                  <option value="acuarela">🖌️ Acuarela</option>
+                  <option value="fantasia">🐉 Fantasía épica</option>
+                  <option value="anime">🌸 Anime</option>
+                  <option value="realista">📷 Realista</option>
+                </select>
+                <button class="btn" id="genBtn" type="submit">✨ Generar</button>
+              </form>
+              <div class="gallery" id="genGallery"></div>
+            </article>
+
+            <article class="panel glass" id="panel-audio" role="region" aria-label="Sonidos">
+              <h3 class="sub">Sonidos relacionados <small>· Wikimedia Commons</small></h3>
+              <div class="audio-list" id="audioList"></div>
+            </article>
+
+            <article class="panel glass" id="panel-memoria" role="region" aria-label="Memoria">
+              <h3 class="sub">Fuentes de la web</h3>
+              <div class="cards" id="webList"></div>
+              <h3 class="sub">Recuerdos guardados</h3>
+              <div class="cards" id="memoryList"></div>
+            </article>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <footer>Hecho con Flask + Gemini · <span id="year"></span></footer>
+  </main>
+
+  <div class="lightbox hidden" id="lightbox" role="dialog" aria-modal="true" aria-label="Vista ampliada">
+    <button class="lb-close icon-btn" id="lbClose" aria-label="Cerrar">✕</button>
+    <button class="lb-nav prev icon-btn" id="lbPrev" aria-label="Anterior">‹</button>
+    <figure>
+      <img id="lbImg" alt="">
+      <figcaption id="lbCaption"></figcaption>
+    </figure>
+    <button class="lb-nav next icon-btn" id="lbNext" aria-label="Siguiente">›</button>
+  </div>
+
+  <div class="toast" id="toast" role="status"></div>
+
+  <script src="{{ url_for('static', filename='app.js') }}"></script>
+</body>
+</html>
